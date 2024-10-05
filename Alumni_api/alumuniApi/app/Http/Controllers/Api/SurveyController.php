@@ -100,7 +100,7 @@ class SurveyController extends Controller
         'survey_title' => 'sometimes|required|string|max:255',
         'description' => 'sometimes|required|string',
         'survey_link' => 'sometimes|required|url',
-        'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+        'image' => 'sometimes|image|mimes:jpeg,png,jpg,gif|max:2048',
     ]);
 
     if ($validator->fails()) {
