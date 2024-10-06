@@ -26,7 +26,9 @@ class UserController extends Controller
                     'full_name' => $user->first_name . ' ' . $user->middle_name . ' ' . $user->last_name,
                     'email' => $user->email,
                     'batch' => $user->batch,
-                    'current_profession' => $user->linkedin_profile, // assuming current profession is stored in the LinkedIn profile
+                    'LinkedIn' => $user->linkedin_profile,
+                    'department' => $user->department,
+                    'phone_number'=> $user->phone_number
                 ]);
             } else {
                 return response()->json(['message' => 'User not found'], 404);
