@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\EventpostController;
 use App\Http\Controllers\Api\JobApplicationController;
 use App\Http\Controllers\Api\EventRegistrationController;
 use App\Http\Controllers\API\RegisterController;
+use App\Http\Controllers\Api\UserController;
 
 Route::post('/login', [RegisterController::class, 'login']);
 // Route::post('/api/register', [RegisterController::class, 'create']);
@@ -20,8 +21,12 @@ Route::middleware('auth:api')->get('/protected-route', function () {
 
 
 Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/user/{id}', [UserController::class, 'showUserDetails']);
+});
 
-    
+Route::middleware(['auth:sanctum'])->group(function () {
+
+
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/profile', [AuthController::class, 'profile']);
 
