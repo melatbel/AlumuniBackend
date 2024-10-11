@@ -96,58 +96,80 @@ class EventpostController extends Controller
 
 
 
-    public function update(Request $request, Eventpost $id)
+    public function update(Request $request, $id)
     {
-
-        \Illuminate\Support\Facades\Log::info('Request Data:', $request->all());
-        \Illuminate\Support\Facades\Log::info('Current job Data:', $id->toArray());
-
-
+        // Find the event post by ID
+        $event_post = Eventpost::find($id);
+    
+        // If event post not found, return an error response
+        if (!$event_post) {
+            return response()->json(['message' => 'Event not found.'], 404);
+        }
+    
+        // Validation for the fields that can be updated
         $validator = Validator::make($request->all(), [
-        'event_title' => 'sometimes|required|string|max:255', // 'sometimes' makes it optional
-        'description' => 'sometimes|required',
-        'dateTime' => 'sometimes|required',
-        'location' => 'sometimes|required', 
-        'image' => 'sometimes|required|image|mimes:jpg,jpeg,png,bmp,gif,svg|max:2048'
-    ]);
-
-    if ($validator->fails()) {
+            'event_title' => 'sometimes|required|string|max:255',
+            'description' => 'sometimes|required',
+            'dateTime' => 'sometimes|required',
+            'location' => 'sometimes|required|string|max:255',
+            'image' => 'sometimes|image|mimes:jpg,jpeg,png,bmp,gif,svg|max:2048',
+        ]);
+    
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'error' => $validator->messages(),
+            ], 422);
+        }
+    
+        // Flag to track if anything was updated
+        $updated = false;
+    
+        // Update fields if they are present in the request
+        if ($request->has('event_title') && $request->event_title !== $event_post->event_title) {
+            $event_post->event_title = $request->event_title;
+            $updated = true;
+        }
+    
+        if ($request->has('description') && $request->description !== $event_post->description) {
+            $event_post->description = $request->description;
+            $updated = true;
+        }
+    
+        if ($request->has('dateTime') && $request->dateTime !== $event_post->dateTime) {
+            $event_post->dateTime = $request->dateTime;
+            $updated = true;
+        }
+    
+        if ($request->has('location') && $request->location !== $event_post->location) {
+            $event_post->location = $request->location;
+            $updated = true;
+        }
+    
+        // Update the image if provided
+        if ($request->hasFile('image')) {
+            // Store the new image
+            $path = $request->file('image')->store('images', 'public');
+            $event_post->image = $path;
+            $updated = true;
+        }
+    
+        // If no fields were updated, return an error response
+        if (!$updated) {
+            return response()->json(['message' => 'No fields were updated.'], 400);
+        }
+    
+        // Save the updated event post
+        $event_post->save();
+    
         return response()->json([
-            'message' => 'Validation failed',
-            'error' => $validator->messages(),
-        ], 422);
+            'message' => 'Event updated successfully.',
+            'data' => new EventResource($event_post),
+        ], 200);
     }
-
-    $image = Image::findOrFail($id);
-        
-        // Delete the old image from storage
-        Storage::disk('public')->delete($image->filename);
-
-        // Store the new image
-        $path = $request->file('image')->store('images', 'public');
-
-        // Update the image record in the database
-        $image->update([
-            'filename' => $path,
-        ]);
-
-        return response()->json($image, 200);
-        
-    // Check if there are any actual changes to update
-    if (!empty($updateData)) {
-        $event_post->update($updateData);
-
-        return response()->json([
-            'message' => 'Event Updated Successfully',
-            'data' => new EventResource($event_post),
-        ]);
-    } else {
-        return response()->json([
-            'message' => 'No changes detected',
-            'data' => new EventResource($event_post),
-        ]);
-     }
-}
+    
+    
+    
 
 
     
@@ -159,7 +181,7 @@ public function destroy(Request $request, $id)
     // If donation not found, return an error response
     if (!$event_post) {
         return response()->json([
-            'message' => 'Job not found',
+            'message' => 'Event not found',
         ], 404);
     }
 

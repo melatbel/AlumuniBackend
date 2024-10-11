@@ -32,7 +32,7 @@ class DonationController extends Controller
 {
     $validator = Validator::make($request->all(),[
         'title' => 'required|string|max:255',
-        'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+        'image' => 'required|image|mimes:jpg,jpeg,png,bmp,gif,svg|max:2048',
         'description' => 'required',
     ]);
 
@@ -92,70 +92,66 @@ class DonationController extends Controller
 
 
 
-    public function update(Request $request, Donations $donation)
+    public function update(Request $request, $id)
     {
-
-        \Illuminate\Support\Facades\Log::info('Request Data:', $request->all());
-\Illuminate\Support\Facades\Log::info('Current Donation Data:', $donation->toArray());
-
-
+        // Find the donation by ID
+        $donation = Donations::find($id);
+    
+        // If donation not found, return an error response
+        if (!$donation) {
+            return response()->json(['message' => 'Donation not found.'], 404);
+        }
+    
+        // Validation for the fields that can be updated
         $validator = Validator::make($request->all(), [
-        'title' => 'sometimes|required|string|max:255', // 'sometimes' makes it optional
-        'image' => 'sometimes|image|mimes:jpeg,png,jpg,gif|max:2048',
-        'description' => 'sometimes|required', // 'sometimes' makes it optional
-    ]);
-
-    if ($validator->fails()) {
-        return response()->json([
-            'message' => 'Validation failed',
-            'error' => $validator->messages(),
-        ], 422);
-    }
-
-    // Handle image upload if present
-    if ($request->hasFile('image')) {
-        $image = $request->file('image');
-        $imageName = time() . '_' . $image->getClientOriginalName();
-        $imagePath = $image->storeAs('images', $imageName, 'public');
-    } else {
-        // If no new image is uploaded, keep the current image path
-        $imagePath = $donation->image;
-    }
-
-    // Prepare update data: only update title and description if they are present
-    $updateData = [];
-
-    if ($request->has('title') && $request->title !== $donation->title) {
-        $updateData['title'] = $request->title;
-    }
-
-    if ($request->has('description') && $request->description !== $donation->description) {
-        $updateData['description'] = $request->description;
-    }
-
-    if ($imagePath !== $donation->image) {
-        $updateData['image'] = $imagePath;
-    }
-
-    // Log prepared update data
-    Log::info('Prepared Update Data:', $updateData);
-
-    // Check if there are any actual changes to update
-    if (!empty($updateData)) {
-        $donation->update($updateData);
-
-        return response()->json([
-            'message' => 'Donation Updated Successfully',
-            'data' => new DonationResource($donation),
+            'title' => 'sometimes|required|string|max:255',
+            'image' => 'sometimes|image|mimes:jpg,jpeg,png,bmp,gif,svg|max:2048',
+            'description' => 'sometimes|required',
         ]);
-    } else {
+    
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'error' => $validator->messages(),
+            ], 422);
+        }
+    
+        // Flag to track if anything was updated
+        $updated = false;
+    
+        // Update fields if they are present in the request
+        if ($request->has('title') && $request->title !== $donation->title) {
+            $donation->title = $request->title;
+            $updated = true;
+        }
+    
+        if ($request->has('description') && $request->description !== $donation->description) {
+            $donation->description = $request->description;
+            $updated = true;
+        }
+    
+        // Update the image if provided
+        if ($request->hasFile('image')) {
+            // Store the new image
+            $path = $request->file('image')->store('images', 'public');
+            $donation->image = $path; // Update the image path in the donation
+            $updated = true;
+        }
+    
+        // If no fields were updated, return an error response
+        if (!$updated) {
+            return response()->json(['message' => 'No fields were updated.'], 400);
+        }
+    
+        // Save the updated donation
+        $donation->save();
+    
         return response()->json([
-            'message' => 'No changes detected',
+            'message' => 'Donation updated successfully.',
             'data' => new DonationResource($donation),
-        ]);
-     }
-}
-
+        ], 200);
+    }
+    
 
     
 public function destroy(Request $request, $id)

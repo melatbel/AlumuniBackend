@@ -35,6 +35,7 @@ class JobController extends Controller
     
     public function store(Request $request)
     {
+        
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
             'company_name' => 'required|string|max:255', 
@@ -55,7 +56,8 @@ class JobController extends Controller
     
         // Store the image
         $path = $request->file('image')->store('images', 'public');
-    
+        Log::info('Image stored at: ' . $path);
+
         // Check for existing job with the same title, description, and location
         $existingJob = Job::where('title', $request->title)
             ->where('description', $request->description)
@@ -114,84 +116,86 @@ class JobController extends Controller
 
 
 
-    public function update(Request $request, Job $job_post)
-{
-    Log::info('Request Data:', $request->all());
-    Log::info('Current Survey Data:', $job_post->toArray());
-
-    $validator = Validator::make($request->all(), [
-        'title' => 'required|string|max:255',
-            'company_name' => 'required|string|max:255', 
-            'description' => 'required',
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'location' => 'required',
-            'deadline' => 'required|date|after_or_equal:today|date_format:Y-m-d', // Corrected date format
-            ], [
-                'deadline.date_format' => 'The deadline must be in the format Y-m-d.', // Uppercase Y for 4-digit year
-    ]);
-
-    if ($validator->fails()) {
-        return response()->json([
-            'message' => 'Validation failed',
-            'errors' => $validator->messages(),
-        ], 422);
-    }
-
-    // Handle image upload if present
-    if ($request->hasFile('image')) {
-        // Store the new image
-        $imagePath = $request->file('image')->store('images', 'public');
-        $job_post->image = $imagePath; // Update image path
-    }
-
-    // Prepare an array to hold fields that need updating
-    $updatedFields = [];
-
-    // Update other fields if present and if they have changed
-    if ($request->has('title') && $job_post->title !== $request->title) {
-        $job_post->title = $request->title;
-        $updatedFields['title'] = $request->title; // Track change
-    }
-
-    if ($request->has('company_name') && $job_post->company_name !== $request->company_name) {
-        $job_post->company_name = $request->company_name;
-        $updatedFields['company_name'] = $request->company_name; // Track change
-    }
-
-    if ($request->has('description') && $job_post->description !== $request->description) {
-        $job_post->description = $request->description;
-        $updatedFields['description'] = $request->description; // Track change
-    }
-
-    if ($request->has('image') && $job_post->image !== $request->image) {
-        $job_post->image = $request->image;
-        $updatedFields['image'] = $request->image; // Track change
-    }
-
-    if ($request->has('location') && $job_post->location !== $request->location) {
-        $job_post->location = $request->location;
-        $updatedFields['location'] = $request->location; // Track change
-    }
-
-    if ($request->has('deadline') && $job_post->deadline !== $request->deadline) {
-        $job_post->deadline = $request->deadline;
-        $updatedFields['deadline'] = $request->deadline; // Track change
-    }
-
-    // Only save if there are changes
-    if (!empty($updatedFields)) {
-        $job_post->save();
-        return response()->json([
-            'message' => 'Job updated successfully',
-            'data' => new JobResource($job_post),
+    public function update(Request $request, $id)
+    {
+        // Find the job post by ID
+        $job_post = Job::find($id);
+    
+        // If job post not found, return an error response
+        if (!$job_post) {
+            return response()->json(['message' => 'Job not found.'], 404);
+        }
+    
+        // Validation for the fields that can be updated
+        $validator = Validator::make($request->all(), [
+            'title' => 'sometimes|required|string|max:255',
+            'company_name' => 'sometimes|required|string|max:255', 
+            'description' => 'sometimes|required',
+            'image' => 'sometimes|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'location' => 'sometimes|required',
+            'deadline' => 'sometimes|required|date|after_or_equal:today|date_format:Y-m-d',
+        ], [
+            'deadline.date_format' => 'The deadline must be in the format Y-m-d.',
         ]);
+    
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->messages(),
+            ], 422);
+        }
+    
+        // Flag to track if anything was updated
+        $updated = false;
+    
+        // Update fields if they are present in the request
+        if ($request->has('title') && $request->title !== $job_post->title) {
+            $job_post->title = $request->title;
+            $updated = true;
+        }
+    
+        if ($request->has('company_name') && $request->company_name !== $job_post->company_name) {
+            $job_post->company_name = $request->company_name;
+            $updated = true;
+        }
+    
+        if ($request->has('description') && $request->description !== $job_post->description) {
+            $job_post->description = $request->description;
+            $updated = true;
+        }
+    
+        if ($request->has('location') && $request->location !== $job_post->location) {
+            $job_post->location = $request->location;
+            $updated = true;
+        }
+    
+        // Update the image if provided
+        if ($request->hasFile('image')) {
+            // Store the new image
+            $path = $request->file('image')->store('images', 'public');
+            $job_post->image = $path; // Update the image path in the job post
+            $updated = true;
+        }
+    
+        if ($request->has('deadline') && $request->deadline !== $job_post->deadline) {
+            $job_post->deadline = $request->deadline;
+            $updated = true;
+        }
+    
+        // If no fields were updated, return an error response
+        if (!$updated) {
+            return response()->json(['message' => 'No fields were updated.'], 400);
+        }
+    
+        // Save the updated job post
+        $job_post->save();
+    
+        return response()->json([
+            'message' => 'Job updated successfully.',
+            'data' => new JobResource($job_post),
+        ], 200);
     }
-
-    return response()->json([
-        'message' => 'No changes detected',
-        'data' => new JobResource($job_post),
-    ]);
-}
+    
 
 
     
