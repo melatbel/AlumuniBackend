@@ -15,7 +15,8 @@ class Job extends Model
         'title',
         'description',
         'location' ,
-        'image'        
+        'image' ,
+        'posted_by'
     ];
 
     public function applications() // Add this if you want to relate jobs and applications

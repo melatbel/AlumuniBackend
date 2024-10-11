@@ -31,6 +31,7 @@ class User extends Authenticatable
         'batch',
         'phone_number',
         'linkedin_profile',
+        'graduation_certificate_path'
     ];
 
     /**

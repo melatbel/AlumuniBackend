@@ -14,10 +14,11 @@ use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests; // Correct namespace
 
 class JobController extends Controller
 {
-    
+ 
     public function index()
     {
         $job_post = Job::get();
@@ -34,64 +35,61 @@ class JobController extends Controller
 
     
     public function store(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'title' => 'required|string|max:255',
-            'description' => 'required',
-            'location' => 'required',
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
-        ]);
-    
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $validator->messages(),
-            ], 422);
-        }
-    
-        // Store the image
-        $path = $request->file('image')->store('images', 'public');
-    
-        // Check for existing job with the same title, description, and location
-        $existingJob = Job::where('title', $request->title)
-            ->where('description', $request->description)
-            ->where('location', $request->location)
-            ->first();
-    
-        if ($existingJob) {
-            return response()->json([
-                'message' => 'Job record already exists.',
-            ], 409); // Conflict status code
-        }
-    
-        // Create a new job post
-        $job = Job::create([
-            'title' => $request->title,
-            'description' => $request->description,
-            'location' => $request->location,
-            'image' => $path, // Use the stored image path
-        ]);
-    
-            // Notify applicants by job title
-            $applicants = JobApplication::where('job_id', $job->id)->get();
-            foreach ($applicants as $applicant) {
-                try {
-                    Mail::to($applicant->email)->send(new JobNotification($job->title));
-                } catch (\Exception $e) {
-                    Log::error('Email could not be sent to: ' . $applicant->email . '. Error: ' . $e->getMessage());
-                }
-            }
-            
+{
+    $validator = Validator::make($request->all(), [
+        'title' => 'required|string|max:255',
+        'description' => 'required',
+        'location' => 'required',
+        'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+    ]);
 
-
-
-    
+    if ($validator->fails()) {
         return response()->json([
-            'message' => 'Job created successfully',
-            'data' => new JobResource($job),
-        ], 201);
+            'message' => 'Validation failed',
+            'errors' => $validator->messages(),
+        ], 422);
     }
-    
+
+    // Store the image
+    $path = $request->file('image')->store('images', 'public');
+
+    // Check for existing job with the same title, description, and location
+    $existingJob = Job::where('title', $request->title)
+        ->where('description', $request->description)
+        ->where('location', $request->location)
+        ->first();
+
+    if ($existingJob) {
+        return response()->json([
+            'message' => 'Job record already exists.',
+        ], 409); // Conflict status code
+    }
+
+    // Create a new job post, including the posted_by field
+    $job = Job::create([
+        'title' => $request->title,
+        'description' => $request->description,
+        'location' => $request->location,
+        'image' => $path, // Use the stored image path
+        'posted_by' => auth()->id(), // Get the currently authenticated user's ID
+    ]);
+
+    // Notify applicants by job title
+    $applicants = JobApplication::where('job_id', $job->id)->get();
+    foreach ($applicants as $applicant) {
+        try {
+            Mail::to($applicant->email)->send(new JobNotification($job->title));
+        } catch (\Exception $e) {
+            Log::error('Email could not be sent to: ' . $applicant->email . '. Error: ' . $e->getMessage());
+        }
+    }
+
+    return response()->json([
+        'message' => 'Job created successfully',
+        'data' => new JobResource($job),
+    ], 201);
+}
+
 
 
 
@@ -108,13 +106,14 @@ class JobController extends Controller
     }
 
 
-
+    use AuthorizesRequests;
     public function update(Request $request, Job $job_post)
     {
-
+        $this->authorize('update', $job_post);
         \Illuminate\Support\Facades\Log::info('Request Data:', $request->all());
         \Illuminate\Support\Facades\Log::info('Current job Data:', $job_post->toArray());
 
+     
 
         $validator = Validator::make($request->all(), [
         'title' => 'sometimes|required|string|max:255', // 'sometimes' makes it optional
@@ -182,15 +181,18 @@ class JobController extends Controller
     
 public function destroy(Request $request, $id)
 {
-    // Find the donation by ID
+    // Find the job post by ID
     $job_post = Job::find($id);
 
-    // If donation not found, return an error response
+    // If job post not found, return an error response
     if (!$job_post) {
         return response()->json([
             'message' => 'Job not found',
         ], 404);
     }
+
+    // Authorize the user to delete the job post
+    $this->authorize('delete', $job_post);
 
     // Optionally check if title matches if provided
     if ($request->has('title') && $request->title !== $job_post->title) {
@@ -199,7 +201,7 @@ public function destroy(Request $request, $id)
         ], 400);
     }
 
-    // Proceed to delete the donation
+    // Proceed to delete the job post
     $job_post->delete();
 
     return response()->json([

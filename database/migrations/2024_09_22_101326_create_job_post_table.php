@@ -17,6 +17,8 @@ return new class extends Migration
             $table->mediumText('description');
             $table->string('location');
             $table->string('image');
+            $table->foreignId('posted_by')->constrained('users')->onDelete('cascade');
+         
             $table->timestamps();
         });
     }

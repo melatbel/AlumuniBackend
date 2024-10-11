@@ -16,6 +16,7 @@ class Donator extends Model
         'phone_number',
         'email',
         'amount',
+        'campaign_name',
     
     ];
 

@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('location');
             $table->string('image');
             //$table->foreignId('created_by')->constrained('users');
+            $table->foreignId('posted_by')->constrained('users')->onDelete('cascade');
             $table->timestamps();
             $table->unique(['event_title', 'description', 'dateTime', 'location']);
 

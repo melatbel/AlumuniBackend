@@ -14,9 +14,13 @@ return new class extends Migration
         Schema::create('donation', function (Blueprint $table) {
             $table->id();
             $table->string('title');
+            $table->text('description');
+            $table->decimal('amount_goal', 10, 2)->default(0);
+            $table->decimal('amount_raised', 10, 2)->default(0);
+            $table->string('submitted_by_name');
             $table->string('image');
-            $table->mediumText('description');
             $table->timestamps();
+    
         });
     }
 
