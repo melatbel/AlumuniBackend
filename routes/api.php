@@ -28,6 +28,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 });
 Route::middleware(['auth:sanctum'])->group(function () {
 
+
     //Route::put('/eventposts/{id}', [EventpostController::class, 'update']);
 
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -41,6 +42,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::apiResource('donation', DonationController::class);
     Route::apiResource('job_post', JobController::class);
 });
+
+
+
+
+
+
+
+
+
 
 
 Route::get('/user', function (Request $request) {

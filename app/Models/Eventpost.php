@@ -17,5 +17,6 @@ class Eventpost extends Model
         'dateTime',
         'location',
         'image'
+
     ];
 }

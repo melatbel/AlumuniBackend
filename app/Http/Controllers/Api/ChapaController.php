@@ -63,6 +63,8 @@ class ChapaController extends Controller
         return response()->json([
             'message' => 'Payment verification failed.',
         ], 400);
+        return response()->json($response);
+
     }
 
     public function verifyPayment($transactionId){
