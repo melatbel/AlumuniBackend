@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\JobApplicationController;
 use App\Http\Controllers\Api\EventRegistrationController;
 use App\Http\Controllers\API\RegisterController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\ChapaController;
 
 Route::post('/login', [RegisterController::class, 'login']);
 // Route::post('/api/register', [RegisterController::class, 'create']);
@@ -19,6 +20,8 @@ Route::middleware('auth:api')->get('/protected-route', function () {
     return response()->json(['message' => 'You are authenticated!']);
 });
 
+Route::post('/payment/initialize', [ChapaController::class, 'initializePayment']);
+Route::get('/payment/verify/{transactionId}', [ChapaController::class, 'verifyPayment']);
 
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/user/{id}', [UserController::class, 'showUserDetails']);

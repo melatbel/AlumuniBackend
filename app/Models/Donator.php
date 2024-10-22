@@ -16,7 +16,6 @@ class Donator extends Model
         'phone_number',
         'email',
         'amount',
-    
     ];
 
     // Define relationship with Donations
