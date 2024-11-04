@@ -14,10 +14,11 @@ use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests; // Correct namespace
 
 class JobController extends Controller
 {
-    
+ 
     public function index()
     {
         $job_post = Job::get();
@@ -34,71 +35,61 @@ class JobController extends Controller
 
     
     public function store(Request $request)
-    {
-        
-        $validator = Validator::make($request->all(), [
-            'title' => 'required|string|max:255',
-            'company_name' => 'required|string|max:255', 
-            'description' => 'required',
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'location' => 'required',
-            'deadline' => 'required|date|after_or_equal:today|date_format:Y-m-d', // Corrected date format
-            ], [
-                'deadline.date_format' => 'The deadline must be in the format Y-m-d.', // Uppercase Y for 4-digit year
-            ]);   
-    
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $validator->messages(),
-            ], 422);
-        }
-    
-        // Store the image
-        $path = $request->file('image')->store('images', 'public');
-        Log::info('Image stored at: ' . $path);
+{
+    $validator = Validator::make($request->all(), [
+        'title' => 'required|string|max:255',
+        'description' => 'required',
+        'location' => 'required',
+        'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+    ]);
 
-        // Check for existing job with the same title, description, and location
-        $existingJob = Job::where('title', $request->title)
-            ->where('description', $request->description)
-            ->where('location', $request->location)
-            ->where('company_name', $request->company_name)
-            ->first();
-    
-        if ($existingJob) {
-            return response()->json([
-                'message' => 'Job record already exists.',
-            ], 409); // Conflict status code
-        }
-    
-        // Create a new job post
-        $job = Job::create([
-            'title' => $request->title,
-            'company_name' => $request->company_name,
-            'description' => $request->description,
-            'location' => $request->location,
-            'image' => $path, // Use the stored image path
-            'deadline' => $request->deadline,
-        ]);
-    
-            // Notify applicants by job title
-            $applicants = JobApplication::where('job_id', $job->id)->get();
-            foreach ($applicants as $applicant) {
-                try {
-                    Mail::to($applicant->email)->send(new JobNotification($job->title));
-                } catch (\Exception $e) {
-                    Log::error('Email could not be sent to: ' . $applicant->email . '. Error: ' . $e->getMessage());
-                }
-            }
-            
-
-    
+    if ($validator->fails()) {
         return response()->json([
-            'message' => 'Job created successfully',
-            'data' => new JobResource($job),
-        ], 201);
+            'message' => 'Validation failed',
+            'errors' => $validator->messages(),
+        ], 422);
     }
-    
+
+    // Store the image
+    $path = $request->file('image')->store('images', 'public');
+
+    // Check for existing job with the same title, description, and location
+    $existingJob = Job::where('title', $request->title)
+        ->where('description', $request->description)
+        ->where('location', $request->location)
+        ->first();
+
+    if ($existingJob) {
+        return response()->json([
+            'message' => 'Job record already exists.',
+        ], 409); // Conflict status code
+    }
+
+    // Create a new job post, including the posted_by field
+    $job = Job::create([
+        'title' => $request->title,
+        'description' => $request->description,
+        'location' => $request->location,
+        'image' => $path, // Use the stored image path
+        'posted_by' => auth()->id(), // Get the currently authenticated user's ID
+    ]);
+
+    // Notify applicants by job title
+    $applicants = JobApplication::where('job_id', $job->id)->get();
+    foreach ($applicants as $applicant) {
+        try {
+            Mail::to($applicant->email)->send(new JobNotification($job->title));
+        } catch (\Exception $e) {
+            Log::error('Email could not be sent to: ' . $applicant->email . '. Error: ' . $e->getMessage());
+        }
+    }
+
+    return response()->json([
+        'message' => 'Job created successfully',
+        'data' => new JobResource($job),
+    ], 201);
+}
+
 
 
 
@@ -115,101 +106,93 @@ class JobController extends Controller
     }
 
 
-
-    public function update(Request $request, $id)
+    use AuthorizesRequests;
+    public function update(Request $request, Job $job_post)
     {
-        // Find the job post by ID
-        $job_post = Job::find($id);
-    
-        // If job post not found, return an error response
-        if (!$job_post) {
-            return response()->json(['message' => 'Job not found.'], 404);
-        }
-    
-        // Validation for the fields that can be updated
+        $this->authorize('update', $job_post);
+        \Illuminate\Support\Facades\Log::info('Request Data:', $request->all());
+        \Illuminate\Support\Facades\Log::info('Current job Data:', $job_post->toArray());
+
+     
+
         $validator = Validator::make($request->all(), [
-            'title' => 'sometimes|required|string|max:255',
-            'company_name' => 'sometimes|required|string|max:255', 
-            'description' => 'sometimes|required',
-            'image' => 'sometimes|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'location' => 'sometimes|required',
-            'deadline' => 'sometimes|required|date|after_or_equal:today|date_format:Y-m-d',
-        ], [
-            'deadline.date_format' => 'The deadline must be in the format Y-m-d.',
-        ]);
-    
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $validator->messages(),
-            ], 422);
-        }
-    
-        // Flag to track if anything was updated
-        $updated = false;
-    
-        // Update fields if they are present in the request
-        if ($request->has('title') && $request->title !== $job_post->title) {
-            $job_post->title = $request->title;
-            $updated = true;
-        }
-    
-        if ($request->has('company_name') && $request->company_name !== $job_post->company_name) {
-            $job_post->company_name = $request->company_name;
-            $updated = true;
-        }
-    
-        if ($request->has('description') && $request->description !== $job_post->description) {
-            $job_post->description = $request->description;
-            $updated = true;
-        }
-    
-        if ($request->has('location') && $request->location !== $job_post->location) {
-            $job_post->location = $request->location;
-            $updated = true;
-        }
-    
-        // Update the image if provided
-        if ($request->hasFile('image')) {
-            // Store the new image
-            $path = $request->file('image')->store('images', 'public');
-            $job_post->image = $path; // Update the image path in the job post
-            $updated = true;
-        }
-    
-        if ($request->has('deadline') && $request->deadline !== $job_post->deadline) {
-            $job_post->deadline = $request->deadline;
-            $updated = true;
-        }
-    
-        // If no fields were updated, return an error response
-        if (!$updated) {
-            return response()->json(['message' => 'No fields were updated.'], 400);
-        }
-    
-        // Save the updated job post
-        $job_post->save();
-    
+        'title' => 'sometimes|required|string|max:255', // 'sometimes' makes it optional
+        'description' => 'sometimes|required',
+        'location' => 'sometimes|required', 
+        'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+    ]);
+
+    if ($validator->fails()) {
         return response()->json([
-            'message' => 'Job updated successfully.',
-            'data' => new JobResource($job_post),
-        ], 200);
+            'message' => 'Validation failed',
+            'error' => $validator->messages(),
+        ], 422);
     }
-    
+
+    // Handle image upload if present
+    if ($request->hasFile('image')) {
+        $image = $request->file('image');
+        $imageName = time() . '_' . $image->getClientOriginalName();
+        $imagePath = $image->storeAs('images', $imageName, 'public');
+    } else {
+        // If no new image is uploaded, keep the current image path
+        $imagePath = $job_post->image;
+    }
+
+    // Prepare update data: only update title and description if they are present
+    $updateData = [];
+
+    if ($request->has('title') && $request->title !== $job_post->title) {
+        $updateData['title'] = $request->title;
+    }
+
+    if ($request->has('description') && $request->description !== $job_post->description) {
+        $updateData['description'] = $request->description;
+    }
+
+    if ($request->has('location') && $request->location !== $job_post->location) {
+        $updateData['location'] = $request->location;
+    }
+
+    if ($imagePath !== $job_post->image) {
+        $updateData['image'] = $imagePath;
+    }
+
+    // Log prepared update data
+    Log::info('Prepared Update Data:', $updateData);
+
+    // Check if there are any actual changes to update
+    if (!empty($updateData)) {
+        $job_post->update($updateData);
+
+        return response()->json([
+            'message' => 'Job Updated Successfully',
+            'data' => new JobResource($job_post),
+        ]);
+    } else {
+        return response()->json([
+            'message' => 'No changes detected',
+            'data' => new JobResource($job_post),
+        ]);
+     }
+}
 
 
     
 public function destroy(Request $request, $id)
 {
-    // Find the donation by ID
+    // Find the job post by ID
     $job_post = Job::find($id);
 
-    // If donation not found, return an error response
+    // If job post not found, return an error response
     if (!$job_post) {
         return response()->json([
             'message' => 'Job not found',
         ], 404);
     }
+
+    // Authorize the user to delete the job post
+    $this->authorize('delete', $job_post);
 
     // Optionally check if title matches if provided
     if ($request->has('title') && $request->title !== $job_post->title) {
@@ -218,7 +201,7 @@ public function destroy(Request $request, $id)
         ], 400);
     }
 
-    // Proceed to delete the donation
+    // Proceed to delete the job post
     $job_post->delete();
 
     return response()->json([
