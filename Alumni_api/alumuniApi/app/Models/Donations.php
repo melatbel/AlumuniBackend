@@ -13,8 +13,10 @@ class Donations extends Model
 
     protected $fillable =[
         'title',
-        'image' ,
-        'description'
-            
+        'description',
+        'amount_goal',
+        'amount_raised',
+        'submitted_by_name',// alumni who suggested the donation
+            'image'
     ];
 }
