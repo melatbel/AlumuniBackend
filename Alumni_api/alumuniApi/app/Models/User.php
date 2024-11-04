@@ -25,10 +25,13 @@ class User extends Authenticatable
         'gender',
         'email',
         'password',
+        'user_type',       // Alumni or Student
+        'id_path',         // File path for uploaded ID
         'department',
         'batch',
         'phone_number',
         'linkedin_profile',
+        'graduation_certificate_path'
     ];
 
     /**
