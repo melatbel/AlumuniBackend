@@ -13,12 +13,10 @@ class Job extends Model
 
     protected $fillable =[
         'title',
-        'company_name',
         'description',
-        'image' ,
         'location' ,
-        'deadline'
-
+        'image' ,
+        'posted_by'
     ];
 
     public function applications() // Add this if you want to relate jobs and applications
