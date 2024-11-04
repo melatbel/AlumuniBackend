@@ -14,11 +14,11 @@ return new class extends Migration
         Schema::create('job_post', function (Blueprint $table) {
             $table->id();
             $table->string('title');
-            $table->string('company_name');
             $table->mediumText('description');
-            $table->string('image');
             $table->string('location');
-            $table->date('deadline');
+            $table->string('image');
+            $table->foreignId('posted_by')->constrained('users')->onDelete('cascade');
+         
             $table->timestamps();
         });
     }
