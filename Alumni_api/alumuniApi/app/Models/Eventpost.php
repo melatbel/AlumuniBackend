@@ -16,7 +16,8 @@ class Eventpost extends Model
         'description',
         'dateTime',
         'location',
-        'image'
+        'image',
+        'posted_by'
             
     ];
 }
